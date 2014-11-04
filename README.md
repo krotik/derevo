@@ -1,6 +1,6 @@
 # Derevo
 
-JavaScript tree visualization. The visualization can show general tree structures with or without a root node and supports live and on demand updates. There is a subclass which provides node selection functionality. The generated HTML and used CSS is fairly simple so it should be easy to customize the appearance of the tree. This implementation is not bound to any library (i.e. works with or without Prototype / JQuery) and should work with all recent browsers as well as IE browsers .
+JavaScript tree visualization. The visualization can show general tree structures with or without a root node and supports live and on demand updates. There is a subclass which provides node selection functionality. The generated HTML and used CSS is fairly simple so it should be easy to customize the appearance of the tree. This implementation is not bound to any library (i.e. works with or without Prototype / JQuery) and should work with all recent browsers as well as older IE (IE7+) browsers .
 
 ![Screenshot](https://github.com/krotik/derevo/blob/master/examples/screenshot.png?raw=true)
 
