@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Simple Tree</title>
+    <link rel="stylesheet" href="../../src/derevo.css">
+    <script src="../../src/derevo.js"></script>
+  </head>
+  <body>
+    <div id="tree"></div>
+<script>
+
+var treeData = [
+    {
+        name     : "Number 0",
+        children : [
+            {
+                name     : "Number 0.0",
+                children : [
+                ]
+            },
+            {
+                name     : "Number 0.1",
+                children : [
+                ]
+            },
+            {
+                name     : "Number 0.2",
+                children : [
+                ]
+            }
+        ]
+    },
+    {
+        name     : "Number 1",
+        children : [
+        ]
+    },
+    {
+        name     : "Number 2",
+        children : [
+            {
+                name     : "Number 2.0",
+                children : [
+                ]
+            },
+            {
+                name     : "Number 2.1",
+                children : [
+                ]
+            },
+            {
+                name     : "Number 2.2",
+                children : [
+                ]
+            }
+        ]
+    }
+];
+
+var options = {
+    images : {
+        line         : "background: url(\"../../src/img/tree_line.png\") repeat-y scroll 0px 0px transparent;",
+        minusbottom  : "background: url(\"../../src/img/tree_minusbottom.png\") no-repeat scroll 0px 0px rgb(255, 255, 255);",
+        plusbottom   : "background: url(\"../../src/img/tree_plusbottom.png\") repeat-y scroll 0px 0px rgb(255, 255, 255);",
+        minus        : "background: url(\"../../src/img/tree_minus.png\") no-repeat scroll 0px 0px transparent;",
+        plus         : "background: url(\"../../src/img/tree_plus.png\") repeat-y scroll 0px 0px transparent;",
+        joinbottom   : "background: url(\"../../src/img/tree_joinbottom.png\") repeat-y scroll 0px 0px rgb(255, 255, 255);",
+        join         : "background: url(\"../../src/img/tree_join.png\") repeat-y scroll 0px 0px transparent;"
+    },
+
+    buildNode : function (nodediv, index, data) {
+        "use strict";
+        nodediv.innerHTML = "TreeNode: " + data["name"];
+    }
+}
+
+var tree = new derevo.TreeController("tree", treeData, options);
+
+</script>
+  </body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>QUnit Tests</title>
+<link rel="stylesheet" href="lib_tests/qunit-1.11.0.css">
+
+<style>
+.tree ul {
+  margin: 0px;
+  padding: 0px 0px 0px 5px;
+  list-style-type: none;
+  list-style-position: outside;
+  width:100%;
+}
+
+.tree li {
+  padding: 0 0 0 15px;
+  margin-left: 0;
+}
+
+.tree div {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  white-space: nowrap; 
+}
+
+.tree .node {
+  margin: 0;
+  padding: 0; 
+  -webkit-box-shadow:3px 2px 5px 1px #ccc;
+  -moz-box-shadow:3px 2px 5px 1px #ccc;
+  box-shadow:3px 2px 5px 1px #ccc;
+  background-color:#f1f1f1;
+}
+
+.tree div, .tree ul, .tree li {
+    -webkit-box-sizing:border-box;
+    -moz-box-sizing:border-box;
+    box-sizing:border-box
+}
+
+.tree .box {
+    height:auto;
+    padding:0 0 4px 2px;
+}
+
+.tree .collapsed ul {
+    display:none;
+}
+
+.tree input.tree-select {
+    float: left;
+}
+
+
+/* Remove this to see the tree */
+.tree {
+    display: none;
+}
+
+</style>
+
+</head>
+<body>
+<div id="testTree"></div>
+<div id="qunit"></div>
+<div id="qunit-fixture"></div>
+
+<script src="lib_tests/qunit-1.11.0.js"></script>
+<script src="derevo.js"></script>
+<script src="tests.js"></script>
+
+</body>
+</html>
