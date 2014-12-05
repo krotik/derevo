@@ -308,10 +308,11 @@ derevo.default_event_handler = {
 
     // Toggle a branch in the tree
     //
-    // element - Element that is being toggled.
-    // e       - Click event.
+    // element        - Element that is being toggled.
+    // e              - Click event.
+    // toggleCallback - Function to be called after the toggle event has ended.
     //
-    branchToggle : function (element, e) {
+    branchToggle : function (element, e, toggleCallback) {
         "use strict";
 
         var index           = element[derevo.INDEX_ATTR],
@@ -335,6 +336,9 @@ derevo.default_event_handler = {
                 derevo.addClassName(element, derevo.CLASS_COLLAPSED);
             }
             this._setBranchImage(element);
+            if (toggleCallback !== undefined) {
+                toggleCallback();
+            }
         }
 
         // Check if this is a deferred node
@@ -346,9 +350,16 @@ derevo.default_event_handler = {
                     delete dataItem["deferred"];
                     this._insertChildren(index, element, dataItem);
                     this._setBranchImage(element);
+                    if (toggleCallback !== undefined) {
+                        toggleCallback();
+                    }
                 }, this);
                 derevo.bind(this._options.buildDeferredData, this)
                     (index, dataItem["children"], callback);
+            } else {
+                if (toggleCallback !== undefined) {
+                    toggleCallback();
+                }
             }
         }
 
@@ -552,12 +563,61 @@ derevo.TreeController =  derevo.Class.create({
             dataItem   = this.getDataItem(index);
 
         if (domElement === undefined || dataItem === undefined) {
-            throw new Error("Could not find element");
+            throw new Error("Could not find element " + index);
         }
 
         this._setBranchImage(domElement, dataItem);
         this._insertChildren(domElement[derevo.INDEX_ATTR], domElement, dataItem);
 
+    },
+
+    // Reload part of the tree. This function removes
+    // the current child elements and triggers a click
+    // event. Use this function only if the tree uses
+    // deferred items.
+    //
+    // index    - Index of the parent node.
+    // callback - Function to be called after the operation has ended.
+    //
+    reloadBranch : function (index, callback) {
+        "use strict";
+
+        var item = this.getDataItem(index),
+            element = this.getDomElement(index);
+
+        // Clear out all children in the dom
+        derevo.findChildren(element, "ul", 1)[0].innerHTML = "";
+
+        // Clear out all children in the data structure
+        item["children"] = [];
+
+        // Reset the deferred state
+        item["deferred"] = true;
+
+        // Update the branch with empty children
+        asset_manager.tree.updateBranch(index);
+
+        // Trigger a click event
+        derevo.bind(this._options.event_handler.branchToggle, this)(element, undefined, callback);
+    },
+
+    // Ensure that a particular branch is open. A click
+    // event is generated if the branch is closed.
+    //
+    // index    - Index of the parent node.
+    // callback - Function to be called after the operation has ended.
+    //
+    openBranch : function (index, callback) {
+        "use strict";
+
+        var item    = this.getDataItem(index),
+            element = this.getDomElement(index);
+
+        if ("deferred" in item || derevo.hasClassName(element, derevo.CLASS_COLLAPSED)) {
+            derevo.bind(this._options.event_handler.branchToggle, this)(element, undefined, callback);
+        } else if (callback !== undefined) {
+            callback();
+        }
     },
 
     // Iterate through all children of a given node.
@@ -572,17 +632,21 @@ derevo.TreeController =  derevo.Class.create({
         var domElement = this.getDomElement(index);
 
         if (domElement === undefined) {
-            throw new Error("Could not find element");
+            throw new Error("Could not find element " + index);
         }
 
         var iteratorFunction = derevo.bind(function (i, v) {
-            var index = v[derevo.INDEX_ATTR],
-                dataItem = this.getDataItem(index);
-            callback(index, v, dataItem);
-        }, this);
+                var index = v[derevo.INDEX_ATTR],
+                    dataItem = this.getDataItem(index);
+                callback(index, v, dataItem);
+            }, this),
+            children = derevo.findChildren(domElement, "li");
 
-        derevo.iterate(derevo.findChildren(domElement, "li").splice(1),
-                       iteratorFunction);
+        if (children[0] === domElement) {
+            children = children.splice(1);
+        }
+
+        derevo.iterate(children, iteratorFunction);
     },
 
     // Iterate through all parents of a given node.
@@ -609,10 +673,12 @@ derevo.TreeController =  derevo.Class.create({
             }, this);
 
         if (domElement === undefined) {
-            throw new Error("Could not find element");
+            throw new Error("Could not find element " + index);
         }
 
-        getParent(domElement);
+        if (!derevo.hasClassName(domElement, "tree")) {
+            getParent(domElement);
+        }
     },
 
     // Insert a child at a specific position.
@@ -625,7 +691,7 @@ derevo.TreeController =  derevo.Class.create({
 
         if (parentIndex === '') {
 
-            if (derevo.hasClassName(this._root_element.children[0].children[0], "box")) {
+            if (this._data.length === 1 && this._options.allow_single_root) {
                 // We got only one root node on the first level and want to
                 // insert another node there.
 
@@ -699,7 +765,7 @@ derevo.TreeController =  derevo.Class.create({
             parentElementUl, parentDataItem;
 
         if (domElement === undefined || dataItem === undefined) {
-            throw new Error("Could not find element");
+            throw new Error("Could not find element " + index);
         }
 
         // Calculate parent index
@@ -803,7 +869,7 @@ derevo.TreeController =  derevo.Class.create({
             return this._root_element;
         }
 
-        if (derevo.hasClassName(element.parentNode.children[0], "box")) {
+        if (this._data.length === 1 && this._options.allow_single_root) {
             // There is only one root node in this case
             element = element.parentNode.parentNode;
             if (path[0] !== "0") {
@@ -838,9 +904,12 @@ derevo.TreeController =  derevo.Class.create({
 
         if (this._data.length === 1 && this._options.allow_single_root) {
 
-            var node = this._createTreeNode('0L', this._data[0]);
+            var node = this._createTreeNode('0L', this._data[0]),
+                boxdiv;
             this._root_element[derevo.INDEX_ATTR] = '0L';
             derevo.insert(this._root_element, node);
+            boxdiv = derevo.findChildren(node, "div", 1)[0];
+            this._setTreeImage(boxdiv, this._options.images.line);
             this._insertChildren('0L', node, this._data[0]);
 
         } else {
