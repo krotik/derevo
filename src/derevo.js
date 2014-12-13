@@ -1276,6 +1276,13 @@ derevo.SelectTreeController = derevo.TreeController.create({
                     inputElement[derevo.DEFERRED_SELECTION] = [];
                 }
                 inputElement[derevo.DEFERRED_SELECTION].push(index);
+
+                // All parents should be indeterminate as well
+                this.iterateParents(parentIndex, function (index, parentElement, parentData) {
+                    var parentInput = derevo.findChildren(parentElement, "input", 1)[0];
+                    parentInput.indeterminate = true;
+                });
+
                 return;
             }
 
