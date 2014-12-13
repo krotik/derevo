@@ -194,6 +194,11 @@ var testData3 = [
     }
 ];
 
+function newTreeController(id, data) {
+    return new derevo.SelectTreeController(id, data);
+    //return new derevo.TreeController(id, data);
+}
+
 test("Test Element Construction", function() {
 
     var tree = new derevo.TreeController("testTree");
@@ -220,7 +225,7 @@ test("Test Element Construction", function() {
 test("Test Construction and Update", function() {
 
     try {
-        new derevo.TreeController("unknown_id");
+        newTreeController("unknown_id");
         ok(false, "Unknown root element should throw an error");
     } catch(e) {
         equal("" + e, "Error: Could not find root element")
@@ -230,7 +235,7 @@ test("Test Construction and Update", function() {
 
     root_element.innerHTML = "test123";
 
-    var tree = new derevo.TreeController("testTree");
+    var tree = newTreeController("testTree");
 
     equal(root_element.innerHTML, "");
 
@@ -337,7 +342,7 @@ test("Test Construction and Update", function() {
 
 test("Test Deferred Expansion", function() {
 
-    var tree = new derevo.TreeController("testTree", derevo.cloneData(testData3));
+    var tree = newTreeController("testTree", derevo.cloneData(testData3));
 
     equal(tree.getDomElement("0-0"), undefined);
 
@@ -428,7 +433,7 @@ test("Test Selection", function() {
 test("Test Tree Update", function() {
 
     var data = derevo.cloneData(testData),
-        tree = new derevo.SelectTreeController("testTree", data);
+        tree = newTreeController("testTree", data);
 
     equal(tree.getDataItem("1-0"), undefined, "Check Test1 data does not exist");
     equal(tree.getDomElement("1-0"), undefined, "Check Test1 element does not exist");
@@ -443,4 +448,151 @@ test("Test Tree Update", function() {
 
     equal(tree.getDataItem("1-0").name, "Test1", "Check Test1 data now exists");
     equal(tree.getDomElement("1-0")._derevo_index, "1L-0", "Check Test1 element now exist");
+});
+
+test("Test API Selection", function() {
+
+    var tree = new derevo.SelectTreeController("testTree", derevo.cloneData(testData));
+
+    tree.toggleChild("0-2");
+
+    // Check parent is selected indeed
+    equal(tree.getChildTickStatus("0-2"), true);
+
+    // Check all children are selected
+    equal(tree.getChildTickStatus("0-2-0"), true);
+    equal(tree.getChildTickStatus("0-2-0-0"), true);
+    equal(tree.getChildTickStatus("0-2-0-1"), true);
+    equal(tree.getChildTickStatus("0-2-0-2"), true);
+
+    equal(tree.getChildTickStatus("0"), false);
+
+    tree.toggleChild("0-0");
+
+    // Check all children are selected
+    equal(tree.getChildTickStatus("0-0-0"), true);
+    equal(tree.getChildTickStatus("0-0-0-0"), true);
+    equal(tree.getChildTickStatus("0-0-0-1"), true);
+    equal(tree.getChildTickStatus("0-0-0-2"), true);
+
+    equal(tree.getChildTickStatus("0"), false);
+
+    tree.toggleChild("0-1");
+
+    // Root should now be selected since all children are selected
+    equal(tree.getChildTickStatus("0"), true);
+
+    tree.toggleChild("0-0");
+
+    // Check all children are deselected
+    equal(tree.getChildTickStatus("0-0-0"), false);
+    equal(tree.getChildTickStatus("0-0-0-0"), false);
+    equal(tree.getChildTickStatus("0-0-0-1"), false);
+    equal(tree.getChildTickStatus("0-0-0-2"), false);
+
+    // Root is deselected
+    equal(tree.getChildTickStatus("0"), false);
+
+    // All other siblings are still selected
+    equal(tree.getChildTickStatus("0-1"), true);
+    equal(tree.getChildTickStatus("0-2-0"), true);
+    equal(tree.getChildTickStatus("0-2-0-0"), true);
+    equal(tree.getChildTickStatus("0-2-0-1"), true);
+    equal(tree.getChildTickStatus("0-2-0-2"), true);
+
+    var list = [];
+    tree.iterateSelectedChildren(function (index) {
+        list.push(index);
+    });
+    equal(list.toString(), "0-1,0-2L,0-2L-0L,0-2L-0L-0,0-2L-0L-1,0-2L-0L-2L");
+
+    list = [];
+    tree.iterateSelectedChildren(function (index) {
+        list.push(index);
+    }, "0-2");
+    equal(list.toString(), "0-2L,0-2L-0L,0-2L-0L-0,0-2L-0L-1,0-2L-0L-2L");
+});
+
+
+
+test("Test Deferred Expansion and selection", function() {
+    var tree = new derevo.SelectTreeController("testTree", derevo.cloneData(testData3)),
+        getInputElement = function (index) {
+            return derevo.findChildren(tree.getDomElement(index), "input", 1)[0];
+        };
+
+    tree.getDataItem("0-0-0").selected = true;
+
+    // Simulate click event on a branch
+    derevo.bind(tree._options.event_handler.branchToggle, tree)
+        (tree.getDomElement("0"));
+
+    equal(tree.getChildTickStatus("0"), false);
+    equal(getInputElement("0").indeterminate, false);
+    equal(tree.getChildTickStatus("0-0"), false);
+    equal(getInputElement("0-0").indeterminate, false);
+
+    // Simulate click event on a branch
+    derevo.bind(tree._options.event_handler.branchToggle, tree)
+        (tree.getDomElement("0-0"));
+
+    equal(tree.getChildTickStatus("0"), false);
+    equal(getInputElement("0").indeterminate, true);
+    equal(tree.getChildTickStatus("0-0"), true);
+    equal(getInputElement("0-0").indeterminate, false);
+    equal(tree.getChildTickStatus("0-0-0"), true);
+    equal(getInputElement("0-0-0").indeterminate, false);
+
+    tree = new derevo.SelectTreeController("testTree", derevo.cloneData(testData3));
+
+    tree.toggleChild("0");
+
+    // Simulate click event on a branch
+    derevo.bind(tree._options.event_handler.branchToggle, tree)
+        (tree.getDomElement("0"));
+
+    equal(tree.getChildTickStatus("0"), true);
+    equal(tree.getChildTickStatus("0-0"), true);
+    equal(tree.getChildTickStatus("0-1"), true);
+
+    tree = new derevo.SelectTreeController("testTree", derevo.cloneData(testData3)),
+        getInputElement = function (index) {
+            return derevo.findChildren(tree.getDomElement(index), "input", 1)[0];
+        };
+
+    tree.toggleChild("0-0-0L");
+
+    equal(tree.getDomElement("0-0"), undefined);
+    equal(getInputElement("0").indeterminate, true);
+
+    // Simulate click event on a branch
+    derevo.bind(tree._options.event_handler.branchToggle, tree)
+        (tree.getDomElement("0"));
+
+    equal(tree.getDomElement("0-0")._derevo_index, "0-0");
+    equal(tree.getDomElement("0-1")._derevo_index, "0-1L");
+    equal(tree.getDomElement("0-0-0"), undefined);
+
+    equal(getInputElement("0").indeterminate, true);
+    equal(getInputElement("0-0").indeterminate, true);
+
+    // Simulate another click event on a branch
+    derevo.bind(tree._options.event_handler.branchToggle, tree)
+        (tree.getDomElement("0-0"));
+
+    equal(tree.getDomElement("0-0-0")._derevo_index, "0-0-0L");
+    equal(tree.getDomElement("1-0"), undefined);
+
+    equal(getInputElement("0").indeterminate, true);
+    // We known now all children so we can say if it is checked or not
+    equal(getInputElement("0-0").indeterminate, false);
+
+    equal(tree.getChildTickStatus("0"), false);
+    equal(tree.getChildTickStatus("0-0"), true);
+    equal(tree.getChildTickStatus("0-0-0"), true);
+
+    derevo.bind(tree._options.event_handler.branchToggle, tree)
+        (tree.getDomElement("1"));
+
+    equal(tree.getDomElement("1-0"), undefined);
 });

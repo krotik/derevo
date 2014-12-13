@@ -613,6 +613,10 @@ derevo.TreeController =  derevo.Class.create({
         var item    = this.getDataItem(index),
             element = this.getDomElement(index);
 
+        if (element === undefined || item === undefined) {
+            throw new Error("Could not find element " + index);
+        }
+
         if ("deferred" in item || derevo.hasClassName(element, derevo.CLASS_COLLAPSED)) {
             derevo.bind(this._options.event_handler.branchToggle, this)(element, undefined, callback);
         } else if (callback !== undefined) {
@@ -1075,9 +1079,56 @@ derevo.TreeController =  derevo.Class.create({
     }
 });
 
+derevo.DEFERRED_SELECTION = "_derevo_deferred_selection";
+
 derevo.default_select_tree_event_handler = {
 
-    branchToggle : derevo.default_event_handler.branchToggle,
+    branchToggle : function (element, e, toggleCallback) {
+        var index = element[derevo.INDEX_ATTR],
+            dataItem  = this.getDataItem(index),
+            deferredLoading = "deferred" in dataItem;
+        derevo.bind(derevo.default_event_handler.branchToggle, this)
+            (element, e, derevo.bind(function() {
+
+                var inputElement = derevo.findChildren(element, "input", 1)[0];
+
+                if (derevo.DEFERRED_SELECTION in inputElement) {
+                    // There was a deferred selection stored here;
+                    // apply it again
+                    var selected = inputElement[derevo.DEFERRED_SELECTION];
+                    delete inputElement[derevo.DEFERRED_SELECTION];
+                    for (var i=0; i<selected.length; i++) {
+                        this.toggleChild(selected[i]);
+                    }
+                } else if (deferredLoading && inputElement.checked) {
+                    // Apply selection to children
+                    var ul = derevo.findChildren(element, "ul", 1)[0];
+                    for (var i=0; i<ul.children.length; i++) {
+                        var childData = this.getDataItem(ul.children[i][derevo.INDEX_ATTR]),
+                            childInput = derevo.findChildren(ul.children[i], "input", 1)[0];
+
+                        childInput.checked = true;
+                        childData.selected = true;
+                    }
+                } else if (deferredLoading) {
+                    // Apply selection to parents
+                    var ul = derevo.findChildren(element, "ul", 1)[0];
+                    for (var i=0; i<ul.children.length; i++) {
+                        var childIndex = ul.children[i][derevo.INDEX_ATTR],
+                            childData = this.getDataItem(childIndex),
+                            childInput = derevo.findChildren(ul.children[i], "input", 1)[0];
+
+                        if (childData.selected) {
+                            derevo.bind(this._options.event_handler.tickToggle, this)(childIndex, childInput, childData);
+                        }
+                    }
+                }
+
+                if (toggleCallback !== undefined) {
+                    toggleCallback();
+                }
+            }, this));
+    },
 
     tickToggle   : function (index, tickbox, childObj, e) {
         "use strict";
@@ -1085,6 +1136,10 @@ derevo.default_select_tree_event_handler = {
         var dataItem = this.getDataItem(index);
 
         dataItem["selected"] = tickbox.checked;
+
+        // Remove any deferred selection
+        tickbox.indeterminate = false;
+        delete tickbox[derevo.DEFERRED_SELECTION]
 
         if (tickbox.checked) {
             // Select all children
@@ -1101,7 +1156,12 @@ derevo.default_select_tree_event_handler = {
                     var childInput = derevo.findChildren(v, "input", 1)[0];
                     allchecked = allchecked && childInput.checked;
                 });
-                parentInput.checked = allchecked;
+                if (allchecked) {
+                    parentInput.checked = allchecked;
+                    parentInput.indeterminate = false;
+                } else {
+                    parentInput.indeterminate = true;
+                }
             });
         } else {
             // Deselect all children
@@ -1109,10 +1169,34 @@ derevo.default_select_tree_event_handler = {
                 childData["selected"] = false;
                 derevo.findChildren(childElement, "input", 1)[0].checked = false;
             });
+
             // Deselect all parents
+            var parents_indeterminate = false;
             this.iterateParents(index, function (index, parentElement, parentData) {
+                var parentInput = derevo.findChildren(parentElement, "input", 1)[0];
+                if (!parents_indeterminate) {
+                    var ul = derevo.findChildren(parentElement, "ul", 1)[0],
+                        child_checked = false;
+                    for (var i=0; i<ul.children.length; i++) {
+                        var childInput = derevo.findChildren(ul.children[i], "input", 1)[0];
+                        if (childInput.checked) {
+                            child_checked = true;
+                            break;
+                        };
+                    }
+
+                    if (child_checked) {
+                        parentInput.indeterminate = true;
+                        parents_indeterminate = true;
+                    } else {
+                        parentInput.indeterminate = false;
+                    }
+                } else {
+                    parentInput.indeterminate = true;
+                }
+
                 parentData["selected"] = false;
-                derevo.findChildren(parentElement, "input", 1)[0].checked = false;
+                parentInput.checked = false;
             });
         }
 
@@ -1139,6 +1223,110 @@ derevo.SelectTreeController = derevo.TreeController.create({
         }
 
         this._super(root_element_id, data, select_tree_options);
+    },
+
+    // Check the tick status of a given child.
+    //
+    // index - Index of the child element.
+    //
+    getChildTickStatus : function (index) {
+        "use strict";
+        var domElement = this.getDomElement(index);
+
+        if (domElement === undefined) {
+            throw new Error("Could not find element " + index);
+        }
+
+        var tickbox = derevo.findChildren(domElement, "input", 1)[0];
+
+        return tickbox.checked;
+    },
+
+    // Set the tick status of a given child.
+    //
+    // index    - Index of the child element.
+    // new_state - New tick state. This might be undefined
+    //            if which case the status will just toggle.
+    //
+    toggleChild : function (index, new_state) {
+        "use strict";
+        var domElement = this.getDomElement(index),
+            dataItem   = this.getDataItem(index);
+
+        if (domElement === undefined) {
+
+            var parentIndex = this.getParentIndex(index);
+            while(this.getDomElement(parentIndex) === undefined) {
+                parentIndex = this.getParentIndex(parentIndex);
+            }
+            var parentDataItem = this.getDataItem(parentIndex);
+
+            if (parentDataItem.deferred) {
+                // We have deferred loading so the index might
+                // become available in the future
+
+                var inputElement = derevo.findChildren(
+                    this.getDomElement(parentIndex), "input", 1)[0];
+
+                inputElement.indeterminate = true;
+
+                if (!(derevo.DEFERRED_SELECTION in inputElement)) {
+                    inputElement[derevo.DEFERRED_SELECTION] = [];
+                }
+                inputElement[derevo.DEFERRED_SELECTION].push(index);
+                return;
+            }
+
+            throw new Error("Could not find element " + index);
+        }
+
+        var tickbox = derevo.findChildren(domElement, "input", 1)[0];
+
+        if (new_state !== undefined && tickbox.checked === new_state) {
+            return
+        }
+
+        if (new_state === undefined) {
+            tickbox.checked = !tickbox.checked;
+        } else {
+            tickbox.checked = new_state;
+        }
+
+        derevo.bind(this._options.event_handler.tickToggle, this)(index, tickbox, dataItem);
+    },
+
+    // Iterate through all selected nodes.
+    //
+    // callback - Function to be called for each selected node.
+    //            Parameters: index, element, data
+    // index    - Branch to be checked for selected nodes. If
+    //            this is undefined all nodes are considered.
+    //
+    iterateSelectedChildren : function (callback, index) {
+        "use strict";
+        var root_element = index === undefined ? this._root_element : this.getDomElement(index),
+            collect      = derevo.bind(function (i, item) {
+                if (item.checked === true && item.tagName.toLowerCase() === "input") {
+                    var element = item,
+                        index,
+                        dataItem;
+
+                    while(element[derevo.INDEX_ATTR] === undefined) {
+                        element = element.parentElement;
+                    }
+                    index = element[derevo.INDEX_ATTR];
+                    dataItem = this.getDataItem(index);
+
+                    callback(index, element, dataItem);
+                }
+                derevo.iterate(item.children, collect);
+            }, this);
+
+        if (root_element === undefined) {
+            throw new Error("Could not find element " + index);
+        }
+
+        collect(0, root_element);
     },
 
     _createTreeNode : function (index, childObj) {
