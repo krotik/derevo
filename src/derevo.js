@@ -1145,7 +1145,9 @@ derevo.default_select_tree_event_handler = {
             // Select all children
             this.iterateChildren(index, function (index, childElement, childData) {
                 childData["selected"] = true;
-                derevo.findChildren(childElement, "input", 1)[0].checked = true;
+                var childInput = derevo.findChildren(childElement, "input", 1)[0];
+                childInput.indeterminate = false;
+                childInput.checked = true;
             });
             // Select all parents where all children are selected
             this.iterateParents(index, function (index, parentElement, parentData) {
