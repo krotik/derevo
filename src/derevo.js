@@ -1169,7 +1169,9 @@ derevo.default_select_tree_event_handler = {
             // Deselect all children
             this.iterateChildren(index, function (index, childElement, childData) {
                 childData["selected"] = false;
-                derevo.findChildren(childElement, "input", 1)[0].checked = false;
+                var childInput = derevo.findChildren(childElement, "input", 1)[0];
+                childInput.indeterminate = false;
+                childInput.checked = false;
             });
 
             // Deselect all parents
@@ -1246,9 +1248,9 @@ derevo.SelectTreeController = derevo.TreeController.create({
 
     // Set the tick status of a given child.
     //
-    // index    - Index of the child element.
+    // index     - Index of the child element.
     // new_state - New tick state. This might be undefined
-    //            if which case the status will just toggle.
+    //             if which case the status will just toggle.
     //
     toggleChild : function (index, new_state) {
         "use strict";
@@ -1291,7 +1293,10 @@ derevo.SelectTreeController = derevo.TreeController.create({
 
         var tickbox = derevo.findChildren(domElement, "input", 1)[0];
 
-        if (new_state !== undefined && tickbox.checked === new_state) {
+        if (new_state !== undefined &&
+            tickbox.checked === new_state &&
+            tickbox.indeterminate !== true) {
+
             return
         }
 
